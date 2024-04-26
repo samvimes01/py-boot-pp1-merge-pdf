@@ -51,18 +51,18 @@ class DocSelector:
         self.merged_list = tk.Listbox(root)
         self.merged_list.pack(padx=10, fill=tk.BOTH, expand=True)
 
-        # Create button to select docx file
-        self.select_button = tk.Button(
-            root, text="Merge files to a single PDF", command=self.merge_pdfs
-        )
+        # Create buttons to merge files and export merged file
+        self.select_button = tk.Button(root, text="Merge files to a single PDF", command=self.merge_pdfs)
+        self.select_button.pack(pady=10)
+        self.select_button = tk.Button(root, text="Save merged file", command=self.save_file)
         self.select_button.pack(pady=10)
 
     def get_self_tmp_dir(self):
         # temp_dir = tempfile.gettempdir()
-        temp_dir = os.path.join("tmp", "merged")
+        temp_dir = os.path.join("tmp")
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir, exist_ok=True)
-        return os.path.join("tmp")
+        return temp_dir
 
     def get_doc_dir(self):
         path = os.path.expanduser("~/Documents")
@@ -87,30 +87,6 @@ class DocSelector:
             filename = os.path.basename(file)
             self.__docs.append(file)
             self.listbox.insert(tk.END, filename)
-
-
-    # Function to update list of available docx files in temp directory
-    def update_mergedlist(self):
-        temp_dir = os.path.join(self.get_self_tmp_dir(), "merged")
-        # Clear listbox
-        self.merged_list.delete(0, tk.END)
-        # Get list of docx files in temp directory
-        for filename in os.listdir(temp_dir):
-            if filename.endswith(".pdf"):
-                self.merged_list.insert(tk.END, filename)
-
-    def merge_pdfs(self):
-        temp_dir = self.get_self_tmp_dir()
-        merger = PdfWriter()
-
-        for pdf in self.__docs:
-            # shutil.copy(doc, os.path.join(temp_dir))
-            merger.append(pdf)
-        dtstr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        merger.write(os.path.join(temp_dir, "merged", f"merged-{dtstr}.pdf"))
-        merger.close()
-        messagebox.showinfo(title="Success", message=f"merged {len(self.__docs)} files successfully")
-        self.update_mergedlist()
 
     # move items
     def move_up(self):
@@ -145,3 +121,41 @@ class DocSelector:
             return
         print(self.listbox.get(sel[0]))
         self.listbox.delete(sel[0])
+
+    # Function to update list of available pdf files in temp directory
+    def update_mergedlist(self):
+        temp_dir = os.path.join(self.get_self_tmp_dir())
+        # Clear listbox
+        self.merged_list.delete(0, tk.END)
+        # Get list of docx files in temp directory
+        for filename in os.listdir(temp_dir):
+            if filename.endswith(".pdf"):
+                self.merged_list.insert(tk.END, filename)
+
+    def merge_pdfs(self):
+        if not self.__docs:
+            return
+        temp_dir = self.get_self_tmp_dir()
+        merger = PdfWriter()
+
+        for pdf in self.__docs:
+            merger.append(pdf)
+        dtstr = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        merger.write(os.path.join(temp_dir, f"merged_{dtstr}.pdf"))
+        merger.close()
+        messagebox.showinfo(title="Success", message=f"merged {len(self.__docs)} files successfully")
+        self.update_mergedlist()
+
+    def save_file(self):
+        selected_index = self.merged_list.curselection()
+        if not selected_index:
+            messagebox.showwarning(title="Fail Saving", message="Please, select a file")
+            return
+        file_name = self.merged_list.get(selected_index)
+        source = os.path.join(self.get_self_tmp_dir(), file_name)
+        dest = filedialog.asksaveasfile(initialfile=file_name, defaultextension=".pdf", filetypes=[("pdf files","*.pdf")])
+        if dest:
+            dest_path = os.path.realpath(dest.name)
+            dest.close()
+            shutil.copyfile(source, dest_path)
+            messagebox.showwarning(title="Saved", message=f"Saved to {dest_path}")
